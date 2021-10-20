@@ -1,5 +1,3 @@
-# DO NOT MODIFY THIS FILE
-# example code taken from fast-bert
 
 import re
 import html
