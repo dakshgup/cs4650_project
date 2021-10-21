@@ -1,42 +1,56 @@
+"""
+preprocessing code taken adapted from:
+https://www.kaggle.com/arunmohan003/sentiment-analysis-using-lstm-pytorch
+
+"""
 
 import re
-import html
+from nltk.corpus import stopwords
+from collections import Counter
+import numpy as np
 
-def spec_add_spaces(t: str) -> str:
-    "Add spaces around / and # in `t`. \n"
-    return re.sub(r"([/#\n])", r" \1 ", t)
+def preprocess_string(s):
+    # Remove all non-word characters (everything except numbers and letters)
+    s = re.sub(r"[^\w\s]", '', s)
+    # Replace all runs of whitespaces with no space
+    s = re.sub(r"\s+", '', s)
+    # replace digits with no space
+    s = re.sub(r"\d", '', s)
 
-def rm_useless_spaces(t: str) -> str:
-    "Remove multiple spaces in `t`."
-    return re.sub(" {2,}", " ", t)
+    return s
 
-def replace_multi_newline(t: str) -> str:
-    return re.sub(r"(\n(\s)*){2,}", "\n", t)
+def tokenize(x_train,y_train,x_val,y_val):
+    word_list = []
 
-def fix_html(x: str) -> str:
-    "List of replacements from html strings in `x`."
-    re1 = re.compile(r"  +")
-    x = (
-        x.replace("#39;", "'")
-        .replace("amp;", "&")
-        .replace("#146;", "'")
-        .replace("nbsp;", " ")
-        .replace("#36;", "$")
-        .replace("\\n", "\n")
-        .replace("quot;", "'")
-        .replace("<br />", "\n")
-        .replace('\\"', '"')
-        .replace(" @.@ ", ".")
-        .replace(" @-@ ", "-")
-        .replace(" @,@ ", ",")
-        .replace("\\", " \\ ")
-    )
-    return re1.sub(" ", html.unescape(x))
-
-def clean_text(input_text):
-    text = fix_html(input_text)
-    text = replace_multi_newline(text)
-    text = spec_add_spaces(text)
-    text = rm_useless_spaces(text)
-    text = text.strip()
-    return text
+    stop_words = set(stopwords.words('english')) 
+    for sent in x_train:
+        for word in sent.lower().split():
+            word = preprocess_string(word)
+            if word not in stop_words and word != '':
+                word_list.append(word)
+  
+    corpus = Counter(word_list)
+    # sorting on the basis of most common words
+    corpus_ = sorted(corpus,key=corpus.get,reverse=True)[:1000]
+    # creating a dict
+    onehot_dict = {w:i+1 for i,w in enumerate(corpus_)}
+    
+    # tokenize
+    final_list_train,final_list_test = [],[]
+    for sent in x_train:
+            final_list_train.append([onehot_dict[preprocess_string(word)] for word in sent.lower().split() 
+                                     if preprocess_string(word) in onehot_dict.keys()])
+    for sent in x_val:
+            final_list_test.append([onehot_dict[preprocess_string(word)] for word in sent.lower().split() 
+                                    if preprocess_string(word) in onehot_dict.keys()])
+            
+    encoded_train = [1 if label =='positive' else 0 for label in y_train]  
+    encoded_test = [1 if label =='positive' else 0 for label in y_val] 
+    return np.array(final_list_train), np.array(encoded_train), np.array(final_list_test), np.array(encoded_test), onehot_dict
+    
+def padding_(sentences, seq_len):
+    features = np.zeros((len(sentences), seq_len),dtype=int)
+    for ii, review in enumerate(sentences):
+        if len(review) != 0:
+            features[ii, -len(review):] = np.array(review)[:seq_len]
+    return features
