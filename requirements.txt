@@ -3,3 +3,5 @@ numpy
 torch
 torchtext
 nltk
+gensim
+matplotlib
